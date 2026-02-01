@@ -1,10 +1,17 @@
-# SNIP - Search, Navigate, Index, Parse
+# 🔎 SNIP - Search, Navigate, Index, Parse
 
 An on-device search engine for everything you need to remember. Index your Markdown notes, meeting transcripts, documentation, and knowledge bases. Search with keywords or natural language. Ideal for agentic workflows.
 
 SNIP combines BM25 full-text search, deterministic offline vector search, and a hybrid reranking pipeline. Single binary, fully offline by default.
 
-## Installation
+## ✨ Highlights
+
+- ⚡ Fast local search with BM25 + vectors
+- 🔒 Fully offline by default
+- 🧠 Hybrid fusion with reranking
+- 📦 Single binary (macOS/Linux/Windows)
+
+## 🚀 Installation
 
 Homebrew (tap placeholder):
 
@@ -24,7 +31,7 @@ Manual build:
 go build ./cmd/snip
 ```
 
-## Quick Start
+## ⚡ Quick Start
 
 ```sh
 # create collections for notes, meetings, and docs
@@ -64,7 +71,7 @@ snip search "API" -c notes
 snip search "API" --all --files --min-score 0.3
 ```
 
-### Using With AI Agents
+### 🤖 Using With AI Agents
 
 SNIP's `--json` and `--files` output formats are designed for agentic workflows:
 
@@ -87,7 +94,7 @@ snip query "payment retries" --json -n 8 | \
   ollama run mistral "Summarize key findings and cite docids."
 ```
 
-### MCP Server
+### 🧩 MCP Server
 
 SNIP can run an MCP server over STDIO for agent integrations:
 
@@ -99,12 +106,12 @@ By default, `snip mcp` uses the same index directory as your last CLI run.
 Override with `--index` or `SNIP_INDEX_DIR` if you keep multiple indexes.
 
 **Tools exposed:**
-- `snip_search` - Fast BM25 keyword search
-- `snip_vsearch` - Semantic vector search (requires embeddings)
-- `snip_query` - Hybrid search with fusion + reranking
-- `snip_get` - Retrieve a document by path or docid
-- `snip_multi_get` - Retrieve multiple documents by glob or list
-- `snip_status` - Index stats and collection info
+- `snip_search` - 🔍 Fast BM25 keyword search
+- `snip_vsearch` - 🧠 Semantic vector search (requires embeddings)
+- `snip_query` - 🧬 Hybrid search with fusion + reranking
+- `snip_get` - 📄 Retrieve a document by path or docid
+- `snip_multi_get` - 🧾 Retrieve multiple documents by glob or list
+- `snip_status` - 📊 Index stats and collection info
 
 **Resources:**
 - `snip://{collection}/{relative/path}` - returns document text with line numbers
@@ -135,68 +142,60 @@ Override with `--index` or `SNIP_INDEX_DIR` if you keep multiple indexes.
 }
 ```
 
-## Architecture
+## 🧱 Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         SNIP Hybrid Search Pipeline                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-                              ┌─────────────────┐
-                              │   User Query    │
-                              └────────┬────────┘
-                                       │
-                        ┌──────────────┴──────────────┐
-                        ▼                             ▼
-               ┌────────────────┐            ┌────────────────┐
-               │ Query Expansion│            │  Original Query│
-               │ (deterministic)│            │   (×2 weight)  │
-               └───────┬────────┘            └───────┬────────┘
-                       │                             │
-                       │ 1–2 alternative queries     │
-                       └──────────────┬──────────────┘
+                         ┌─────────────────────────┐
+                         │       User Query        │
+                         └────────────┬────────────┘
                                       │
-              ┌───────────────────────┼───────────────────────┐
-              ▼                       ▼                       ▼
-     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-     │ Original Query  │     │ Expanded Query 1│     │ Expanded Query 2│
-     └────────┬────────┘     └────────┬────────┘     └────────┬────────┘
-              │                       │                       │
-      ┌───────┴───────┐       ┌───────┴───────┐       ┌───────┴───────┐
-      ▼               ▼       ▼               ▼       ▼               ▼
-  ┌───────┐       ┌───────┐ ┌───────┐     ┌───────┐ ┌───────┐     ┌───────┐
-  │ BM25  │       │Vector │ │ BM25  │     │Vector │ │ BM25  │     │Vector │
-  │(FTS5) │       │Search │ │(FTS5) │     │Search │ │(FTS5) │     │Search │
-  └───┬───┘       └───┬───┘ └───┬───┘     └───┬───┘ └───┬───┘     └───┬───┘
-      │               │         │             │         │             │
-      └───────┬───────┘         └──────┬──────┘         └──────┬──────┘
-              │                        │                       │
-              └────────────────────────┼───────────────────────┘
-                                       │
-                                       ▼
-                          ┌───────────────────────┐
-                          │   RRF Fusion + Bonus  │
-                          │  Original query: ×2   │
-                          │  Top-rank bonus: +0.05│
-                          │     Top 30 Kept       │
-                          └───────────┬───────────┘
-                                      │
-                                      ▼
-                          ┌───────────────────────┐
-                          │  Local Re-ranking     │
-                          │ (yzma or overlap)     │
-                          └───────────┬───────────┘
-                                      │
-                                      ▼
-                          ┌───────────────────────┐
-                          │  Position-Aware Blend │
-                          │  Top 1-3:  75% RRF    │
-                          │  Top 4-10: 60% RRF    │
-                          │  Top 11+:  40% RRF    │
-                          └───────────────────────┘
+                   ┌──────────────────┴──────────────────┐
+                   ▼                                     ▼
+        ┌────────────────────────┐            ┌────────────────────────┐
+        │ Query Expansion        │            │ Original Query (×2)     │
+        │ deterministic variants │            └────────────┬───────────┘
+        └────────────┬───────────┘                         │
+                     │ 1-2 alternatives                   │
+                     └────────────┬────────────────────────┘
+                                  ▼
+                       ┌────────────────────┐
+                       │ Query Set (N<=3)   │
+                       └───────────┬────────┘
+                                   │
+        ┌──────────────────────────┼──────────────────────────┐
+        ▼                          ▼                          ▼
+  ┌───────────────┐         ┌───────────────┐          ┌───────────────┐
+  │ BM25 (FTS5)   │         │ Vector Search │          │ BM25 (FTS5)   │
+  └───────┬───────┘         └───────┬───────┘          └───────┬───────┘
+          │                         │                          │
+          └──────────────┬──────────┴──────────┬───────────────┘
+                         ▼                     ▼
+                 ┌────────────────────────────────────┐
+                 │   RRF Fusion + Top-Rank Bonus      │
+                 │   original query weighted ×2       │
+                 │   keep top 30 candidates           │
+                 └──────────────────┬─────────────────┘
+                                    │
+                                    ▼
+                         ┌───────────────────────┐
+                         │  Local Re-ranking     │
+                         │ (yzma or overlap)     │
+                         └───────────┬───────────┘
+                                     │
+                                     ▼
+                         ┌───────────────────────┐
+                         │  Position-Aware Blend │
+                         │  Top 1-3:  75% RRF    │
+                         │  Top 4-10: 60% RRF    │
+                         │  Top 11+:  40% RRF    │
+                         └───────────────────────┘
 ```
 
-## Score Normalization & Fusion
+## 📊 Score Normalization & Fusion
 
 ### Search Backends
 
@@ -221,15 +220,15 @@ The `query` command uses **Reciprocal Rank Fusion (RRF)** with position-aware bl
    - RRF rank 4-10: 60% retrieval, 40% reranker
    - RRF rank 11+: 40% retrieval, 60% reranker
 
-## Requirements
+## ✅ Requirements
 
 - Go 1.24+ toolchain for building from source
 - SQLite is embedded via Go (no external dependency)
 - Optional: llama.cpp shared libraries for yzma-based models
 
-## Usage
+## 📚 Usage
 
-### Collection Management
+### 📁 Collection Management
 
 ```sh
 # create a collection from current directory
@@ -252,7 +251,7 @@ snip ls notes
 snip ls notes/subfolder
 ```
 
-### Generate Vector Embeddings
+### 🧠 Generate Vector Embeddings
 
 ```sh
 # embed all indexed documents (800 tokens/chunk, 15% overlap)
@@ -262,7 +261,7 @@ snip embed
 snip embed -f
 ```
 
-### Context Management
+### 🧭 Context Management
 
 Context adds descriptive metadata to collections and paths, helping search understand your content.
 
@@ -281,7 +280,7 @@ snip context list
 snip context rm snip://notes/old
 ```
 
-### Search Commands
+### 🔍 Search Commands
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -304,7 +303,7 @@ snip vsearch "how to login"
 snip query "user authentication"
 ```
 
-### Options
+### ⚙️ Options
 
 ```sh
 # search options
@@ -323,7 +322,7 @@ snip query "user authentication"
 --xml              # XML output
 ```
 
-### Output Format (Human)
+### 🖨️ Output Format (Human)
 
 ```
 Software Craftsmanship  (score: 0.9300)
@@ -334,7 +333,7 @@ This section covers the craftsmanship of building
 quality software with attention to detail.
 ```
 
-## Data Storage
+## 💾 Data Storage
 
 Index stored at: `~/.cache/snip/index.sqlite` (respects `XDG_CACHE_HOME`).
 
@@ -348,9 +347,9 @@ documents_fts   -- FTS5 full-text index
 content_vectors -- Embedding chunks (hash, seq, pos, 800 tokens each)
 ```
 
-## How It Works
+## 🧰 How It Works
 
-### Indexing Flow
+### 🧱 Indexing Flow
 
 ```
 Collection ──► Glob Pattern ──► Markdown Files ──► Parse Title ──► Hash Content
@@ -365,7 +364,7 @@ Collection ──► Glob Pattern ──► Markdown Files ──► Parse Title
                                                                   FTS5 Index
 ```
 
-### Embedding Flow
+### 🧠 Embedding Flow
 
 Documents are chunked into 800-token pieces with 15% overlap:
 
@@ -378,7 +377,7 @@ Document ──► Chunk (800 tokens) ──► Hash Embedder ──► Store Ve
                     - pos: token position in original
 ```
 
-### Query Flow (Hybrid)
+### 🧬 Query Flow (Hybrid)
 
 ```
 Query ──► Expansion ──► [Original, Variant 1, Variant 2]
@@ -415,7 +414,7 @@ Query ──► Expansion ──► [Original, Variant 1, Variant 2]
          Final Results
 ```
 
-## Configuration
+## 🔧 Configuration
 
 SNIP reads YAML or JSON config (if present) and environment variables. Flags always override config.
 
@@ -446,7 +445,7 @@ Env vars:
 - `SNIP_MODEL` (legacy alias for `SNIP_EMBED_MODEL`)
 - `SNIP_DEBUG`
 
-### Model Configuration (Yzma)
+### 🧠 Model Configuration (Yzma)
 
 SNIP supports local GGUF models via yzma (llama.cpp without CGO). Configure models using HuggingFace URIs:
 
@@ -482,3 +481,7 @@ go build -tags yzma ./cmd/snip
 ```
 
 To force pure-Go mode, set `embed_model: hash` (or `SNIP_MODEL=hash`).
+
+## 🙏 Credits
+
+SNIP is heavily inspired by https://github.com/tobi/qmd/tree/main.
