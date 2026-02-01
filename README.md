@@ -13,13 +13,13 @@ SNIP combines BM25 full-text search, deterministic offline vector search, and a 
 
 ## 🚀 Installation
 
-Homebrew (tap placeholder):
+Homebrew:
 
 ```sh
 brew install snip
 ```
 
-Install script (placeholder):
+Install script:
 
 ```sh
 curl -fsSL https://example.com/snip/install.sh | sh
