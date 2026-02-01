@@ -32,7 +32,7 @@ func Default() Config {
 		RerankModel:   "hf:ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/qwen3-reranker-0.6b-q8_0.gguf",
 		ExpandModel:   "hf:tobil/qmd-query-expansion-1.7B-gguf/qmd-query-expansion-1.7B-q4_k_m.gguf",
 		ModelCacheDir: filepath.Join(util.CacheDir(), "snip", "models"),
-		LlamaLibPath:  "",
+		LlamaLibPath:  filepath.Join(util.CacheDir(), "snip", "llama"),
 		Debug:         false,
 		NoColor:       false,
 	}
