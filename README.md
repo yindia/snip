@@ -281,10 +281,9 @@ snip query "user authentication"
 ### Output Format (Human)
 
 ```
-docs/guide.md  (score: 0.93)
-#a1b2c3
-Title: Software Craftsmanship
-Context: Work documentation
+Software Craftsmanship  (score: 0.9300)
+docs/guide.md  [a1b2c3]
+context: Work documentation
 
 This section covers the craftsmanship of building
 quality software with attention to detail.
@@ -391,4 +390,3 @@ Env vars:
 - `SNIP_INDEX_DIR`
 - `SNIP_MODEL`
 - `SNIP_DEBUG`
-
