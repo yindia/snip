@@ -5,21 +5,21 @@
 class Snip < Formula
   desc "SNIP: Search, Navigate, Index, Parse"
   homepage "https://github.com/yindia/snip"
-  version "0.0.3"
+  version "0.0.4"
   license "MIT"
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/yindia/snip/releases/download/v0.0.3/snip_0.0.3_darwin_amd64.tar.gz"
-      sha256 "576b6d927405f4f0b56ab9669095d6c19bbaa87482ee037781b10d222414e972"
+      url "https://github.com/yindia/snip/releases/download/v0.0.4/snip_0.0.4_darwin_amd64.tar.gz"
+      sha256 "f85577a71ebe2d5c45240d59abad449a961a246c5279d2609b41cc276164c0fe"
 
       def install
         bin.install "snip"
       end
     end
     if Hardware::CPU.arm?
-      url "https://github.com/yindia/snip/releases/download/v0.0.3/snip_0.0.3_darwin_arm64.tar.gz"
-      sha256 "cc4df17622f3550ab956dd1f84aa2927e8ca0c61893321674786ec4d7ef27fd5"
+      url "https://github.com/yindia/snip/releases/download/v0.0.4/snip_0.0.4_darwin_arm64.tar.gz"
+      sha256 "1ee49b7705829e80f7569bafee881b38afe336312da5f8052e73ed3c3edbcf7a"
 
       def install
         bin.install "snip"
@@ -29,15 +29,15 @@ class Snip < Formula
 
   on_linux do
     if Hardware::CPU.intel? && Hardware::CPU.is_64_bit?
-      url "https://github.com/yindia/snip/releases/download/v0.0.3/snip_0.0.3_linux_amd64.tar.gz"
-      sha256 "537a8b500d1b4ce60f3714de1683bfbc5145e9ed61785b5054cfb835dfed504f"
+      url "https://github.com/yindia/snip/releases/download/v0.0.4/snip_0.0.4_linux_amd64.tar.gz"
+      sha256 "2a658b26bb530170ba81f3961e0e2a72f2f40034f32bf8eb3daae759357cf1c9"
       def install
         bin.install "snip"
       end
     end
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
-      url "https://github.com/yindia/snip/releases/download/v0.0.3/snip_0.0.3_linux_arm64.tar.gz"
-      sha256 "be2bead7ba1d698848304627993c069313b14cd3d7f439f81a121e0d89722645"
+      url "https://github.com/yindia/snip/releases/download/v0.0.4/snip_0.0.4_linux_arm64.tar.gz"
+      sha256 "cc90d8b38907b082ca758106eb8c378a9e3cddfb76543d7034a00188a7132b5f"
       def install
         bin.install "snip"
       end
