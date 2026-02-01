@@ -2,6 +2,20 @@
 
 SNIP is a local-first CLI search engine for Markdown notes, meeting transcripts, and technical documentation. It indexes Markdown into SQLite (FTS5 BM25), supports deterministic offline embeddings, and offers a hybrid query pipeline. Single binary, fully offline by default.
 
+## Installation
+
+Homebrew (tap placeholder):
+
+```sh
+brew install snip
+```
+
+Manual build:
+
+```sh
+go build ./cmd/snip
+```
+
 ## Quick Start
 
 ```sh
