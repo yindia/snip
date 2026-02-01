@@ -7,7 +7,13 @@ SNIP is a local-first CLI search engine for Markdown notes, meeting transcripts,
 Homebrew (tap placeholder):
 
 ```sh
+brew tap yindia/snip
 brew install snip
+```
+Install script:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/yindia/snip/refs/heads/main/install.sh | sh
 ```
 
 Manual build:
