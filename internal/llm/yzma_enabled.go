@@ -1,3 +1,6 @@
+//go:build yzma
+// +build yzma
+
 package llm
 
 import (

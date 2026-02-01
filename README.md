@@ -416,3 +416,10 @@ expand_model: hf:tobil/qmd-query-expansion-1.7B-gguf/qmd-query-expansion-1.7B-q4
 
 Models must exist on disk. Use the `yzma` CLI (or manual download) to populate `model_cache_dir`.
 If models or the llama.cpp libraries are missing, SNIP falls back to hash embeddings and lexical reranking.
+To enable yzma support, build with the `yzma` tag:
+
+```sh
+go build -tags yzma ./cmd/snip
+```
+
+To force pure-Go mode, set `embed_model: hash` (or `SNIP_MODEL=hash`).

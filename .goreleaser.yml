@@ -7,6 +7,8 @@ builds:
     binary: snip
     env:
       - CGO_ENABLED=0
+    tags:
+      - yzma
     goos:
       - linux
       - darwin
