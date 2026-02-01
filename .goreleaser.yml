@@ -1,0 +1,55 @@
+version: 2
+project_name: snip
+
+builds:
+  - id: snip
+    main: ./main.go
+    binary: snip
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - "-s -w"
+
+archives:
+  - id: snip
+    builds: [snip]
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+brews:
+  - ids: [snip]
+    homepage: "https://github.com/yindia/snip"
+    description: "SNIP: Search, Navigate, Index, Parse"
+    license: "MIT"
+    directory: Formula
+    repository:
+      owner: "yindia"
+      name: "snip"
+    test: |
+      system "#{bin}/snip", "--help"
+    install: |
+      bin.install "snip"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  github:
+    owner: "yindia"
+    name: "snip"
+  draft: true
