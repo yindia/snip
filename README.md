@@ -16,7 +16,7 @@ SNIP combines BM25 full-text search, deterministic offline vector search, and a 
 Homebrew:
 
 ```sh
-brew install snip
+brew install yindia/snip/snip
 ```
 
 Install script:
