@@ -237,9 +237,15 @@ func isMarkdown(path string, mask string, base string) bool {
 	}
 	rel = filepath.ToSlash(rel)
 	if mask != "" {
-		ok, err := filepath.Match(mask, rel)
-		if err == nil && ok {
-			return true
+		for _, part := range strings.Split(mask, ",") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			ok, err := filepath.Match(part, rel)
+			if err == nil && ok {
+				return true
+			}
 		}
 		return false
 	}

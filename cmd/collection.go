@@ -30,7 +30,7 @@ func collectionCmd() *cobra.Command {
 
 func collectionAddCmd() *cobra.Command {
 	var name string
-	var mask string
+	var masks []string
 	cmd := &cobra.Command{
 		Use:   "add <path>",
 		Short: "Add a collection",
@@ -56,6 +56,7 @@ func collectionAddCmd() *cobra.Command {
 				return err
 			}
 			defer h.DB.Close()
+			mask := joinMasks(masks)
 			_, err = h.DB.Exec(`INSERT INTO collections(name, path, mask) VALUES(?,?,?)`, name, path, mask)
 			if err != nil {
 				return err
@@ -65,7 +66,7 @@ func collectionAddCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "collection name")
-	cmd.Flags().StringVar(&mask, "mask", "", "glob mask")
+	cmd.Flags().StringArrayVar(&masks, "mask", nil, "glob mask (repeatable)")
 	return cmd
 }
 
@@ -283,4 +284,21 @@ func collectionByName(db *sql.DB, name string) (string, error) {
 		return "", err
 	}
 	return path, nil
+}
+
+func joinMasks(items []string) string {
+	if len(items) == 0 {
+		return ""
+	}
+	parts := []string{}
+	for _, item := range items {
+		for _, part := range strings.Split(item, ",") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			parts = append(parts, part)
+		}
+	}
+	return strings.Join(parts, ",")
 }

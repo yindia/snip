@@ -61,11 +61,36 @@ snip query "error handling" --all --files --min-score 0.4
 snip get "docs/api-reference.md"
 ```
 
+Example pipeline with a local LLM (Ollama):
+
+```sh
+# search, then summarize the results with a local model
+snip query "payment retries" --json -n 8 | \
+  ollama run mistral "Summarize key findings and cite docids."
+```
+
+## Example: Searching Code
+
+By default SNIP indexes Markdown. To index raw code files, add a collection with a mask and re-index:
+
+```sh
+# index Go + Python source files (repeatable masks)
+snip collection add ~/work/myrepo --name myrepo --mask "*.go" --mask "*.py"
+snip update
+
+# keyword search for identifiers or functions
+snip search "main" -c myrepo
+snip search "ServeHTTP" -c myrepo
+
+# hybrid search for mixed natural language + code
+snip query "parse config file" -c myrepo
+```
+
 ## Commands
 
 ### Collections
 
-- `snip collection add <path> --name <name> [--mask "<glob>"]`
+- `snip collection add <path> --name <name> [--mask "<glob>"]...`
 - `snip collection list`
 - `snip collection remove <name>`
 - `snip collection rename <old> <new>`
