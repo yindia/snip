@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -60,6 +61,7 @@ func init() {
 		if noColorFlag {
 			cfg.NoColor = true
 		}
+		applyIndexHint(configPath)
 		util.SetDebug(cfg.Debug)
 		return nil
 	}
@@ -76,6 +78,7 @@ func init() {
 	rootCmd.AddCommand(queryCmd())
 	rootCmd.AddCommand(getCmd())
 	rootCmd.AddCommand(multiGetCmd())
+	rootCmd.AddCommand(mcpCmd())
 }
 
 func openDB() (*dbHandle, error) {
@@ -83,6 +86,7 @@ func openDB() (*dbHandle, error) {
 	if err != nil {
 		return nil, err
 	}
+	writeIndexHint(cfg.IndexDir)
 	return &dbHandle{DB: sqlDB, Path: path}, nil
 }
 
@@ -112,6 +116,64 @@ func defaultConfigPath() string {
 		}
 	}
 	return ""
+}
+
+func applyIndexHint(configPath string) {
+	if indexDirFlag != "" {
+		return
+	}
+	if configPath != "" {
+		return
+	}
+	hint, err := readIndexHint()
+	if err != nil || hint == "" {
+		return
+	}
+	cfg.IndexDir = hint
+}
+
+func readIndexHint() (string, error) {
+	paths := indexHintPaths()
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		hint := strings.TrimSpace(string(data))
+		if hint != "" {
+			return hint, nil
+		}
+	}
+	return "", os.ErrNotExist
+}
+
+func writeIndexHint(indexDir string) {
+	if indexDir == "" {
+		return
+	}
+	for _, path := range indexHintPaths() {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			continue
+		}
+		_ = os.WriteFile(path, []byte(indexDir+"\n"), 0o644)
+	}
+}
+
+func indexHintPaths() []string {
+	paths := []string{}
+	add := func(path string) {
+		for _, existing := range paths {
+			if existing == path {
+				return
+			}
+		}
+		paths = append(paths, path)
+	}
+	add(filepath.Join(util.CacheDir(), "snip", "last_index"))
+	if userCache, err := os.UserCacheDir(); err == nil && userCache != "" {
+		add(filepath.Join(userCache, "snip", "last_index"))
+	}
+	return paths
 }
 
 func newEmbedder() embed.Embedder {

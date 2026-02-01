@@ -87,9 +87,53 @@ snip query "payment retries" --json -n 8 | \
   ollama run mistral "Summarize key findings and cite docids."
 ```
 
-### MCP Server (Planned)
+### MCP Server
 
-SNIP is CLI-only in v1. MCP integration is planned but not available yet.
+SNIP can run an MCP server over STDIO for agent integrations:
+
+```sh
+snip mcp
+```
+
+By default, `snip mcp` uses the same index directory as your last CLI run.
+Override with `--index` or `SNIP_INDEX_DIR` if you keep multiple indexes.
+
+**Tools exposed:**
+- `snip_search` - Fast BM25 keyword search
+- `snip_vsearch` - Semantic vector search (requires embeddings)
+- `snip_query` - Hybrid search with fusion + reranking
+- `snip_get` - Retrieve a document by path or docid
+- `snip_multi_get` - Retrieve multiple documents by glob or list
+- `snip_status` - Index stats and collection info
+
+**Resources:**
+- `snip://{collection}/{relative/path}` - returns document text with line numbers
+
+**Claude Desktop configuration** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "snip": {
+      "command": "snip",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+**Claude Code configuration** (`~/.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "snip": {
+      "command": "snip",
+      "args": ["mcp"]
+    }
+  }
+}
+```
 
 ## Architecture
 

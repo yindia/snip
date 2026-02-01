@@ -56,6 +56,22 @@ func collectionAddCmd() *cobra.Command {
 				return err
 			}
 			defer h.DB.Close()
+			var existingPath, existingMask string
+			err = h.DB.QueryRow(`SELECT path, mask FROM collections WHERE name = ?`, name).Scan(&existingPath, &existingMask)
+			if err == nil {
+				return fmt.Errorf("collection %q already exists (path: %s). use `snip collection rename %s <new>` or `snip collection remove %s`", name, existingPath, name, name)
+			}
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
+			var existingName string
+			err = h.DB.QueryRow(`SELECT name FROM collections WHERE path = ?`, path).Scan(&existingName)
+			if err == nil && existingName != name {
+				return fmt.Errorf("path %q is already registered as collection %q", path, existingName)
+			}
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
 			mask := joinMasks(masks)
 			_, err = h.DB.Exec(`INSERT INTO collections(name, path, mask) VALUES(?,?,?)`, name, path, mask)
 			if err != nil {
