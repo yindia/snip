@@ -2,15 +2,16 @@ package cmd
 
 import (
 	"database/sql"
-	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/spf13/cobra"
 
 	"snip/internal/config"
 	"snip/internal/db"
 	"snip/internal/embed"
+	"snip/internal/llm"
 	"snip/internal/util"
 )
 
@@ -25,6 +26,9 @@ var (
 	debugFlag    bool
 	noColorFlag  bool
 	cfg          config.Config
+	llmOnce      sync.Once
+	llmBackend   *llm.Backend
+	llmErr       error
 )
 
 func Execute() {
@@ -111,11 +115,20 @@ func defaultConfigPath() string {
 }
 
 func newEmbedder() embed.Embedder {
-	modelDir := filepath.Join(util.CacheDir(), "snip", "models")
-	_ = os.MkdirAll(modelDir, 0o755)
-	if cfg.Model == "" || cfg.Model == "hash" {
+	if cfg.EmbedModel == "" || cfg.EmbedModel == "hash" {
 		return embed.NewHashEmbedder(256)
 	}
-	fmt.Fprintf(os.Stderr, "unknown model %q, falling back to hash\n", cfg.Model)
-	return embed.NewHashEmbedder(256)
+	backend, err := getLLMBackend()
+	if err != nil || backend == nil {
+		util.Debugf("llm backend unavailable: %v", err)
+		return embed.NewHashEmbedder(256)
+	}
+	return embed.NewYzmaEmbedder(backend)
+}
+
+func getLLMBackend() (*llm.Backend, error) {
+	llmOnce.Do(func() {
+		llmBackend, llmErr = llm.NewYzmaBackend(cfg)
+	})
+	return llmBackend, llmErr
 }

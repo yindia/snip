@@ -42,3 +42,19 @@ func (l LexicalReranker) Rerank(query string, docs []Doc) ([]float64, error) {
 	}
 	return scores, nil
 }
+
+type FallbackReranker struct {
+	Primary  Reranker
+	Fallback Reranker
+}
+
+func (f FallbackReranker) Rerank(query string, docs []Doc) ([]float64, error) {
+	if f.Primary == nil {
+		return f.Fallback.Rerank(query, docs)
+	}
+	scores, err := f.Primary.Rerank(query, docs)
+	if err != nil || len(scores) != len(docs) {
+		return f.Fallback.Rerank(query, docs)
+	}
+	return scores, nil
+}

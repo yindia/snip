@@ -18,3 +18,7 @@ type Options struct {
 	MinScore   float64
 	Full       bool
 }
+
+type Expander interface {
+	Expand(query string) ([]string, error)
+}

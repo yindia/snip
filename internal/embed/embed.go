@@ -14,6 +14,11 @@ type Embedder interface {
 	Name() string
 }
 
+type TextFormatter interface {
+	FormatQuery(query string) string
+	FormatDocument(title, text string) string
+}
+
 type HashEmbedder struct {
 	dim int
 }
@@ -44,6 +49,14 @@ func (h *HashEmbedder) Embed(texts []string) ([][]float32, error) {
 		out = append(out, vec)
 	}
 	return out, nil
+}
+
+func (h *HashEmbedder) FormatQuery(query string) string {
+	return query
+}
+
+func (h *HashEmbedder) FormatDocument(title, text string) string {
+	return text
 }
 
 func fnv32(s string) uint32 {

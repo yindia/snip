@@ -28,7 +28,8 @@ func queryCmd() *cobra.Command {
 				return err
 			}
 			embedder := newEmbedder()
-			reranker := rerank.LexicalReranker{}
+			reranker := selectReranker()
+			expander := selectExpander()
 			opts := search.Options{
 				Limit:      flags.limit,
 				Collection: flags.collection,
@@ -36,7 +37,7 @@ func queryCmd() *cobra.Command {
 				MinScore:   flags.minScore,
 				Full:       flags.full,
 			}
-			results, err := search.HybridSearch(context.Background(), h.DB, embedder, reranker, args[0], opts)
+			results, err := search.HybridSearch(context.Background(), h.DB, embedder, reranker, expander, args[0], opts)
 			if err != nil {
 				return err
 			}
@@ -45,4 +46,22 @@ func queryCmd() *cobra.Command {
 	}
 	addSearchFlags(cmd, &flags)
 	return cmd
+}
+
+func selectReranker() rerank.Reranker {
+	fallback := rerank.LexicalReranker{}
+	backend, err := getLLMBackend()
+	if err != nil || backend == nil || !backend.CanRerank() {
+		return fallback
+	}
+	rr := rerank.NewYzmaReranker(backend)
+	return rerank.FallbackReranker{Primary: rr, Fallback: fallback}
+}
+
+func selectExpander() search.Expander {
+	backend, err := getLLMBackend()
+	if err != nil || backend == nil || !backend.CanExpand() {
+		return nil
+	}
+	return backend
 }

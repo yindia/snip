@@ -16,6 +16,7 @@ type EmbedStats struct {
 
 type docJob struct {
 	Hash    string
+	Title   string
 	Content string
 }
 
@@ -29,7 +30,7 @@ type docResult struct {
 // EmbedDocuments generates embeddings for documents and stores them.
 func EmbedDocuments(ctx context.Context, db *sql.DB, embedder Embedder, force bool) (EmbedStats, error) {
 	stats := EmbedStats{}
-	rows, err := db.QueryContext(ctx, `SELECT hash, content FROM documents`)
+	rows, err := db.QueryContext(ctx, `SELECT hash, title, content FROM documents`)
 	if err != nil {
 		return stats, err
 	}
@@ -50,8 +51,13 @@ func EmbedDocuments(ctx context.Context, db *sql.DB, embedder Embedder, force bo
 					continue
 				}
 				texts := make([]string, 0, len(chunks))
+				formatter, _ := embedder.(TextFormatter)
 				for _, c := range chunks {
-					texts = append(texts, c.Text)
+					text := c.Text
+					if formatter != nil {
+						text = formatter.FormatDocument(job.Title, text)
+					}
+					texts = append(texts, text)
 				}
 				vecs, err := embedder.Embed(texts)
 				results <- docResult{Hash: job.Hash, Chunks: chunks, Vectors: vecs, Err: err}
@@ -65,8 +71,8 @@ func EmbedDocuments(ctx context.Context, db *sql.DB, embedder Embedder, force bo
 	}()
 
 	for rows.Next() {
-		var hash, content string
-		if err := rows.Scan(&hash, &content); err != nil {
+		var hash, title, content string
+		if err := rows.Scan(&hash, &title, &content); err != nil {
 			return stats, err
 		}
 		stats.Documents++
@@ -78,7 +84,7 @@ func EmbedDocuments(ctx context.Context, db *sql.DB, embedder Embedder, force bo
 				continue
 			}
 		}
-		jobs <- docJob{Hash: hash, Content: content}
+		jobs <- docJob{Hash: hash, Title: title, Content: content}
 	}
 	close(jobs)
 	if err := rows.Err(); err != nil {

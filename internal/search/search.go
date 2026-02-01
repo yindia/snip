@@ -53,9 +53,6 @@ func FTSSearch(ctx context.Context, db *sql.DB, query string, opts Options) ([]R
 		if err := rows.Scan(&r.DocID, &r.Collection, &r.RelPath, &r.Title, &r.Content, &r.Score); err != nil {
 			return nil, err
 		}
-		if r.Score < opts.MinScore {
-			continue
-		}
 		r.Snippet = buildSnippet(r.Content, query)
 		if !opts.Full {
 			r.Content = ""
@@ -65,6 +62,8 @@ func FTSSearch(ctx context.Context, db *sql.DB, query string, opts Options) ([]R
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	normalizeScores(results)
+	results = applyMinScore(results, opts.MinScore)
 	attachContexts(ctx, db, results)
 	return results, nil
 }
@@ -93,7 +92,11 @@ func VectorSearch(ctx context.Context, db *sql.DB, embedder embed.Embedder, quer
 	if opts.All {
 		collection = ""
 	}
-	queryVecs, err := embedder.Embed([]string{query})
+	queryText := query
+	if formatter, ok := embedder.(embed.TextFormatter); ok {
+		queryText = formatter.FormatQuery(query)
+	}
+	queryVecs, err := embedder.Embed([]string{queryText})
 	if err != nil {
 		return nil, err
 	}
@@ -139,9 +142,6 @@ func VectorSearch(ctx context.Context, db *sql.DB, embedder embed.Embedder, quer
 	results := make([]Result, 0, len(byDoc))
 	for _, ag := range byDoc {
 		ag.res.Score = ag.score
-		if ag.res.Score < opts.MinScore {
-			continue
-		}
 		ag.res.Snippet = buildSnippet(ag.res.Content, query)
 		if !opts.Full {
 			ag.res.Content = ""
@@ -149,6 +149,8 @@ func VectorSearch(ctx context.Context, db *sql.DB, embedder embed.Embedder, quer
 		results = append(results, ag.res)
 	}
 	sort.Slice(results, func(i, j int) bool { return results[i].Score > results[j].Score })
+	normalizeScores(results)
+	results = applyMinScore(results, opts.MinScore)
 	if len(results) > limit {
 		results = results[:limit]
 	}
@@ -157,11 +159,11 @@ func VectorSearch(ctx context.Context, db *sql.DB, embedder embed.Embedder, quer
 }
 
 // HybridSearch combines FTS and vector retrieval using RRF and reranking.
-func HybridSearch(ctx context.Context, db *sql.DB, embedder embed.Embedder, rr rerank.Reranker, query string, opts Options) ([]Result, error) {
+func HybridSearch(ctx context.Context, db *sql.DB, embedder embed.Embedder, rr rerank.Reranker, expander Expander, query string, opts Options) ([]Result, error) {
 	if strings.TrimSpace(query) == "" {
 		return nil, nil
 	}
-	queries := expandQueries(query)
+	queries := expandQueriesWith(expander, query)
 	lists := make([]rrfList, 0, len(queries)*2)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -216,6 +218,8 @@ func HybridSearch(ctx context.Context, db *sql.DB, embedder embed.Embedder, rr r
 		fused = fused[:30]
 	}
 
+	normalizeScores(fused)
+
 	rerankDocs := make([]rerank.Doc, 0, len(fused))
 	for _, res := range fused {
 		rerankDocs = append(rerankDocs, rerank.Doc{Title: res.Title, Content: res.Content, Context: res.Context})
@@ -224,6 +228,7 @@ func HybridSearch(ctx context.Context, db *sql.DB, embedder embed.Embedder, rr r
 	if err != nil {
 		return nil, err
 	}
+	rerankScores = normalizeFloatScores(rerankScores)
 	for i := range fused {
 		weight := blendWeight(i)
 		fused[i].Score = weight*fused[i].Score + (1.0-weight)*rerankScores[i]
@@ -338,6 +343,31 @@ func expandQueries(query string) []string {
 	return unique(alts, 3)
 }
 
+func expandQueriesWith(expander Expander, query string) []string {
+	base := expandQueries(query)
+	if expander == nil {
+		return base
+	}
+	alts, err := expander.Expand(query)
+	if err != nil || len(alts) == 0 {
+		return base
+	}
+	out := []string{query}
+	for _, alt := range alts {
+		if strings.TrimSpace(alt) == "" || strings.EqualFold(alt, query) {
+			continue
+		}
+		out = append(out, alt)
+		if len(out) >= 3 {
+			break
+		}
+	}
+	if len(out) == 1 {
+		return base
+	}
+	return out
+}
+
 func unique(items []string, max int) []string {
 	seen := map[string]struct{}{}
 	out := []string{}
@@ -443,5 +473,72 @@ func rrfFuse(lists []rrfList) []Result {
 		out = append(out, res)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Score > out[j].Score })
+	return out
+}
+
+func normalizeScores(results []Result) {
+	if len(results) == 0 {
+		return
+	}
+	min := results[0].Score
+	max := results[0].Score
+	for _, r := range results[1:] {
+		if r.Score < min {
+			min = r.Score
+		}
+		if r.Score > max {
+			max = r.Score
+		}
+	}
+	denom := max - min
+	if denom <= 0 {
+		for i := range results {
+			results[i].Score = 1.0
+		}
+		return
+	}
+	for i := range results {
+		results[i].Score = (results[i].Score - min) / denom
+	}
+}
+
+func applyMinScore(results []Result, min float64) []Result {
+	if min <= 0 {
+		return results
+	}
+	out := make([]Result, 0, len(results))
+	for _, r := range results {
+		if r.Score >= min {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+func normalizeFloatScores(scores []float64) []float64 {
+	if len(scores) == 0 {
+		return scores
+	}
+	min := scores[0]
+	max := scores[0]
+	for _, v := range scores[1:] {
+		if v < min {
+			min = v
+		}
+		if v > max {
+			max = v
+		}
+	}
+	denom := max - min
+	out := make([]float64, len(scores))
+	if denom <= 0 {
+		for i := range scores {
+			out[i] = 1.0
+		}
+		return out
+	}
+	for i, v := range scores {
+		out[i] = (v - min) / denom
+	}
 	return out
 }

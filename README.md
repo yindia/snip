@@ -139,8 +139,8 @@ SNIP is CLI-only in v1. MCP integration is planned but not available yet.
                                       │
                                       ▼
                           ┌───────────────────────┐
-                          │  Lexical Re-ranking   │
-                          │ (overlap fallback)    │
+                          │  Local Re-ranking     │
+                          │ (yzma or overlap)     │
                           └───────────┬───────────┘
                                       │
                                       ▼
@@ -156,11 +156,11 @@ SNIP is CLI-only in v1. MCP integration is planned but not available yet.
 
 ### Search Backends
 
-| Backend | Raw Score | Notes | Range |
-|---------|-----------|-------|-------|
-| **FTS (BM25)** | SQLite FTS5 BM25 | SNIP uses `-bm25()` so higher is better | 0 to ~25+ |
-| **Vector** | Cosine similarity | Deterministic hash embedder in v1 | 0.0 to 1.0 |
-| **Reranker** | Lexical overlap | Token overlap between query and doc | 0.0 to 1.0 |
+| Backend | Raw Score | Normalization | Range |
+|---------|-----------|---------------|-------|
+| **FTS (BM25)** | SQLite FTS5 BM25 | Min-max within result set | 0.0 to 1.0 |
+| **Vector** | Cosine similarity | Min-max within result set | 0.0 to 1.0 |
+| **Reranker** | Yzma-based LLM or lexical overlap | Min-max within result set | 0.0 to 1.0 |
 
 ### Fusion Strategy
 
@@ -171,7 +171,7 @@ The `query` command uses **Reciprocal Rank Fusion (RRF)** with position-aware bl
 3. **RRF Fusion**: Combine all result lists using `score = Σ(1/(k+rank+1))` where k=60
 4. **Top-Rank Bonus**: Documents ranking #1 in any list get +0.05, #2-3 get +0.02
 5. **Top-K Selection**: Take top 30 candidates for reranking
-6. **Re-ranking**: Lexical overlap fallback (local reranker interface ready)
+6. **Re-ranking**: Yzma-based LLM reranker, fallback to lexical overlap
 7. **Position-Aware Blending**:
    - RRF rank 1-3: 75% retrieval, 25% reranker
    - RRF rank 4-10: 60% retrieval, 40% reranker
@@ -179,8 +179,9 @@ The `query` command uses **Reciprocal Rank Fusion (RRF)** with position-aware bl
 
 ## Requirements
 
-- Go toolchain for building from source
+- Go 1.24+ toolchain for building from source
 - SQLite is embedded via Go (no external dependency)
+- Optional: llama.cpp shared libraries for yzma-based models
 
 ## Usage
 
@@ -266,7 +267,7 @@ snip query "user authentication"
 -n <num>           # number of results (default: 5)
 -c, --collection   # restrict search to a specific collection
 --all              # search all collections
---min-score <num>  # minimum score threshold (default: 0)
+--min-score <num>  # minimum score threshold (0.0–1.0)
 --full             # include full document content
 --line-numbers     # add line numbers to output
 
@@ -358,7 +359,7 @@ Query ──► Expansion ──► [Original, Variant 1, Variant 2]
          Top 30 candidates
                 │
                 ▼
-         Lexical Re-ranking
+         Local Re-ranking (yzma or overlap)
                 │
                 ▼
          Position-Aware Blend
@@ -381,12 +382,37 @@ Default config path (if present):
 Config keys:
 
 - `index_dir`
-- `model`
+- `embed_model`
+- `rerank_model`
+- `expand_model`
+- `model_cache_dir`
+- `llama_lib_path`
+- `model` (legacy alias for `embed_model`)
 - `debug`
 - `no_color`
 
 Env vars:
 
 - `SNIP_INDEX_DIR`
-- `SNIP_MODEL`
+- `SNIP_EMBED_MODEL`
+- `SNIP_RERANK_MODEL`
+- `SNIP_EXPAND_MODEL`
+- `SNIP_MODEL_CACHE_DIR`
+- `SNIP_LLAMA_LIB`
+- `SNIP_MODEL` (legacy alias for `SNIP_EMBED_MODEL`)
 - `SNIP_DEBUG`
+
+### Model Configuration (Yzma)
+
+SNIP supports local GGUF models via yzma (llama.cpp without CGO). Configure models using HuggingFace URIs:
+
+```yaml
+llama_lib_path: /path/to/llama.cpp/libs
+model_cache_dir: ~/.cache/snip/models
+embed_model: hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf
+rerank_model: hf:ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/qwen3-reranker-0.6b-q8_0.gguf
+expand_model: hf:tobil/qmd-query-expansion-1.7B-gguf/qmd-query-expansion-1.7B-q4_k_m.gguf
+```
+
+Models must exist on disk. Use the `yzma` CLI (or manual download) to populate `model_cache_dir`.
+If models or the llama.cpp libraries are missing, SNIP falls back to hash embeddings and lexical reranking.
