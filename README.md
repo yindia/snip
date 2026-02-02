@@ -62,7 +62,7 @@ snip get "meetings/2024-01-15.md"
 snip get "#abc123def4567890"
 
 # get multiple documents by glob pattern
-snip multi-get "journals/2025-05*.md"
+snip get "journals/2025-05*.md"
 
 # search within a specific collection
 snip search "API" -c notes
@@ -240,6 +240,8 @@ snip collection add ~/repo --name repo --extension go --extension py
 
 # match all markdown files recursively
 snip collection add ~/repo --name repo --extension md
+
+# indexing respects .gitignore files under the collection root
 
 # list all collections
 snip collection list

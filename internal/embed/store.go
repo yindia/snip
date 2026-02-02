@@ -3,8 +3,11 @@ package embed
 import (
 	"context"
 	"database/sql"
+	"path/filepath"
 	"runtime"
 	"sync"
+
+	"snip/internal/ignore"
 )
 
 type EmbedStats struct {
@@ -30,7 +33,10 @@ type docResult struct {
 // EmbedDocuments generates embeddings for documents and stores them.
 func EmbedDocuments(ctx context.Context, db *sql.DB, embedder Embedder, force bool) (EmbedStats, error) {
 	stats := EmbedStats{}
-	rows, err := db.QueryContext(ctx, `SELECT hash, title, content FROM documents`)
+	rows, err := db.QueryContext(ctx, `
+		SELECT d.hash, d.title, d.content, d.collection, d.relpath, c.path
+		FROM documents d
+		JOIN collections c ON c.name = d.collection`)
 	if err != nil {
 		return stats, err
 	}
@@ -75,15 +81,28 @@ func EmbedDocuments(ctx context.Context, db *sql.DB, embedder Embedder, force bo
 	go func() {
 		defer close(jobs)
 		var scanErr error
+		ignoreMatchers := make(map[string]*ignore.Matcher)
 		for rows.Next() {
-			var hash, title, content string
-			if err := rows.Scan(&hash, &title, &content); err != nil {
+			var hash, title, content, collection, relpath, basePath string
+			if err := rows.Scan(&hash, &title, &content, &collection, &relpath, &basePath); err != nil {
 				scanErr = err
 				break
 			}
 			mu.Lock()
 			stats.Documents++
 			mu.Unlock()
+			matcher := ignoreMatchers[collection]
+			if matcher == nil {
+				matcher = ignore.NewMatcher(basePath)
+				ignoreMatchers[collection] = matcher
+			}
+			absPath := filepath.Join(basePath, filepath.FromSlash(relpath))
+			if matcher.Ignored(absPath, false) {
+				mu.Lock()
+				stats.Skipped++
+				mu.Unlock()
+				continue
+			}
 			if !force {
 				var exists int
 				err := db.QueryRowContext(ctx, `SELECT 1 FROM content_vectors WHERE hash = ? LIMIT 1`, hash).Scan(&exists)

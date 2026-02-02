@@ -13,9 +13,9 @@ import (
 
 func getCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <path|#docid|path:line>",
+		Use:   "get <path|#docid|path:line|glob|list>",
 		Short: "Retrieve a document",
-		Long:  "Fetch a document by path or docid, optionally showing a line range.",
+		Long:  "Fetch a document by path or docid, or multiple documents by glob/list.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			h, err := openDB()
@@ -23,7 +23,14 @@ func getCmd() *cobra.Command {
 				return err
 			}
 			defer h.DB.Close()
-			docid, path, line := parseDocSpecifier(args[0])
+			input := strings.TrimSpace(args[0])
+			if isGlobPattern(input) {
+				return multiGetByGlob(cmd, h.DB, input)
+			}
+			if strings.Contains(input, ",") {
+				return multiGetByList(cmd, h.DB, input)
+			}
+			docid, path, line := parseDocSpecifier(input)
 			var doc *docRecord
 			if docid != "" {
 				doc, err = getDocByID(h.DB, docid)

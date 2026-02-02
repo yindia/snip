@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"snip/internal/ignore"
 	"snip/internal/util"
 )
 
@@ -65,6 +66,7 @@ func Update(ctx context.Context, db *sql.DB, collections []Collection) (Stats, e
 func updateCollection(ctx context.Context, db *sql.DB, col Collection) (Stats, error) {
 	stats := Stats{}
 	util.Debugf("indexing collection %s (%s)", col.Name, col.Path)
+	ignoreMatcher := ignore.NewMatcher(col.Path)
 	jobs := make(chan job, 128)
 	results := make(chan result, 128)
 	var wg sync.WaitGroup
@@ -100,6 +102,12 @@ func updateCollection(ctx context.Context, db *sql.DB, col Collection) (Stats, e
 						return filepath.SkipDir
 					}
 				}
+				if path != col.Path && ignoreMatcher.Ignored(path, true) {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if ignoreMatcher.Ignored(path, false) {
 				return nil
 			}
 			if !matchesExtensions(path, col.Extensions, col.Path) {
