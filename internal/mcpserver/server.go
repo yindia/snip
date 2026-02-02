@@ -39,12 +39,6 @@ func New(db *sql.DB, embedder embed.Embedder, rr rerank.Reranker, expander searc
 	}, adapter.Get)
 
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "snip_multi_get",
-		Description: "Retrieve multiple documents by glob or list (legacy).",
-		InputSchema: multiGetInputSchema(),
-	}, adapter.MultiGet)
-
-	mcp.AddTool(server, &mcp.Tool{
 		Name:        "snip_status",
 		Description: "Return index status and collection stats.",
 	}, adapter.Status)

@@ -46,7 +46,6 @@ func TestServerRegistersTools(t *testing.T) {
 		"snip_vsearch",
 		"snip_query",
 		"snip_get",
-		"snip_multi_get",
 		"snip_status",
 	} {
 		if !got[name] {

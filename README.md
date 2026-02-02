@@ -110,7 +110,6 @@ Override with `--index` or `SNIP_INDEX_DIR` if you keep multiple indexes.
 - `snip_vsearch` - 🧠 Semantic vector search (requires embeddings)
 - `snip_query` - 🧬 Hybrid search with fusion + reranking
 - `snip_get` - 📄 Retrieve one or many documents (path/docid, glob, or list)
-- `snip_multi_get` - 🧾 Retrieve multiple documents by glob or list (legacy)
 - `snip_status` - 📊 Index stats and collection info
 
 **Resources:**

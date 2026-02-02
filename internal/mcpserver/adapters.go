@@ -71,6 +71,18 @@ type GetInput struct {
 	LineNumbers bool   `json:"lineNumbers,omitempty" jsonschema:"include line numbers"`
 }
 
+type GetResult struct {
+	DocID       string  `json:"docid"`
+	File        string  `json:"file"`
+	Title       string  `json:"title"`
+	Content     string  `json:"content"`
+	Context     *string `json:"context"`
+	LineNumbers bool    `json:"lineNumbers"`
+	FromLine    int     `json:"fromLine,omitempty"`
+	MaxLines    int     `json:"maxLines,omitempty"`
+	Truncated   bool    `json:"truncated,omitempty"`
+}
+
 type GetOutput struct {
 	DocID       string        `json:"docid"`
 	File        string        `json:"file"`
@@ -81,7 +93,7 @@ type GetOutput struct {
 	FromLine    int           `json:"fromLine,omitempty"`
 	MaxLines    int           `json:"maxLines,omitempty"`
 	Truncated   bool          `json:"truncated,omitempty"`
-	Results     []GetOutput   `json:"results,omitempty"`
+	Results     []GetResult   `json:"results,omitempty"`
 	Skipped     []SkippedItem `json:"skipped,omitempty"`
 }
 
@@ -98,7 +110,7 @@ type SkippedItem struct {
 }
 
 type MultiGetOutput struct {
-	Results []GetOutput   `json:"results"`
+	Results []GetResult   `json:"results"`
 	Skipped []SkippedItem `json:"skipped,omitempty"`
 }
 
@@ -281,7 +293,7 @@ func (a *Adapter) MultiGet(ctx context.Context, _ *mcp.CallToolRequest, input Mu
 		}
 	}
 
-	results := make([]GetOutput, 0, len(docs))
+	results := make([]GetResult, 0, len(docs))
 	for _, doc := range docs {
 		content, fromLine, maxLines, err := sliceContent(doc.Content, doc.Line, input.MaxLines)
 		if err != nil {
@@ -293,7 +305,7 @@ func (a *Adapter) MultiGet(ctx context.Context, _ *mcp.CallToolRequest, input Mu
 		}
 		content, truncated := enforceMaxBytes(content, maxBytes)
 		ctxText := a.lookupContext(ctx, doc.Collection, doc.RelPath)
-		out := GetOutput{
+		out := GetResult{
 			DocID:       "#" + doc.DocID,
 			File:        doc.Collection + "/" + doc.RelPath,
 			Title:       doc.Title,
@@ -389,7 +401,6 @@ Use snip_search for fast keyword/BM25 lookups (exact terms, symbols, filenames).
 Use snip_vsearch for semantic similarity when embeddings are available.
 Use snip_query for the hybrid pipeline (best overall quality).
 Use snip_get to fetch a document by path/docid, or multiple documents with glob/list (optionally cap output with maxBytes).
-Use snip_multi_get if you need explicit multi-get semantics.
 Resources are available as snip://collection/relative/path and include line numbers by default.
 `)
 	return &mcp.GetPromptResult{
