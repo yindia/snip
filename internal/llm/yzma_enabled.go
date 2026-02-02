@@ -294,6 +294,17 @@ func loadExpandModel(path string) (llama.Model, llama.Vocab, error) {
 	return model, vocab, nil
 }
 
+func limitTokens(ctx llama.Context, tokens []llama.Token) []llama.Token {
+	max := int(llama.NUBatch(ctx))
+	if max <= 0 {
+		max = int(llama.NBatch(ctx))
+	}
+	if max <= 0 || len(tokens) <= max {
+		return tokens
+	}
+	return tokens[:max]
+}
+
 func embedTexts(ctx llama.Context, vocab llama.Vocab, dim int, texts []string) ([][]float32, error) {
 	if ctx == 0 {
 		return nil, errors.New("invalid embed context")
@@ -302,12 +313,13 @@ func embedTexts(ctx llama.Context, vocab llama.Vocab, dim int, texts []string) (
 	out := make([][]float32, 0, len(texts))
 	for _, text := range texts {
 		tokens := llama.Tokenize(vocab, text, true, true)
+		tokens = limitTokens(ctx, tokens)
 		if len(tokens) == 0 {
 			out = append(out, make([]float32, dim))
 			continue
 		}
 		batch := llama.BatchGetOne(tokens)
-		llama.Decode(ctx, batch)
+		llama.Encode(ctx, batch)
 		emb, err := llama.GetEmbeddingsSeq(ctx, 0, int32(dim))
 		if err != nil {
 			return nil, err
@@ -326,11 +338,12 @@ func embedTexts(ctx llama.Context, vocab llama.Vocab, dim int, texts []string) (
 
 func rankText(ctx llama.Context, vocab llama.Vocab, model llama.Model, nCls int, text string) (float64, error) {
 	tokens := llama.Tokenize(vocab, text, true, true)
+	tokens = limitTokens(ctx, tokens)
 	if len(tokens) == 0 {
 		return 0, nil
 	}
 	batch := llama.BatchGetOne(tokens)
-	llama.Decode(ctx, batch)
+	llama.Encode(ctx, batch)
 	vals, err := llama.GetEmbeddingsSeq(ctx, 0, int32(nCls))
 	if err != nil {
 		return 0, err
@@ -385,6 +398,7 @@ func expandQuery(model llama.Model, vocab llama.Vocab, query string) ([]string, 
 
 	prompt := "Generate 2 alternative search queries for: " + query + "\nReturn one per line."
 	tokens := llama.Tokenize(vocab, prompt, true, true)
+	tokens = limitTokens(ctx, tokens)
 	if len(tokens) == 0 {
 		return nil, nil
 	}

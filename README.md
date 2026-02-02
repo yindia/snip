@@ -453,7 +453,29 @@ Env vars:
 
 ### 🧠 Model Configuration (Yzma)
 
-SNIP supports local GGUF models via yzma (llama.cpp without CGO). Configure models using HuggingFace URIs:
+SNIP supports local GGUF models via yzma (llama.cpp without CGO). The flow is:
+
+1) Build SNIP with yzma support.
+2) Install llama.cpp shared libraries.
+3) Download GGUF models into a cache directorysnip.
+4) Point SNIP at the libraries + models using config or env vars.
+
+Build with the `yzma` tag:
+
+```sh
+go build -tags yzma ./main.go
+```
+
+Install llama.cpp libs and download models:
+
+```sh
+yzma install --lib ~/.cache/snip/llama
+yzma model get -u https://huggingface.co/ggml-org/embeddinggemma-300M-GGUF/resolve/main/embeddinggemma-300M-Q8_0.gguf -o ~/.cache/snip/models
+yzma model get -u https://huggingface.co/ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/resolve/main/qwen3-reranker-0.6b-q8_0.gguf -o ~/.cache/snip/models
+yzma model get -u https://huggingface.co/tobil/qmd-query-expansion-1.7B-gguf/resolve/main/qmd-query-expansion-1.7B-q4_k_m.gguf -o ~/.cache/snip/models
+```
+
+Configure SNIP (config file or env vars). Example `~/.config/snip/config.yaml`:
 
 ```yaml
 llama_lib_path: ~/.cache/snip/llama
@@ -463,30 +485,17 @@ rerank_model: hf:ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/qwen3-reranker-0.6b-q8_0
 expand_model: hf:tobil/qmd-query-expansion-1.7B-gguf/qmd-query-expansion-1.7B-q4_k_m.gguf
 ```
 
-Models must exist on disk. Use the `yzma` CLI (or manual download) to populate `model_cache_dir`.
-Example setup with yzma:
+Or set env vars instead:
 
 ```sh
-# install llama.cpp shared libraries
-yzma install --lib ~/.cache/snip/llama
-
-# download models into cache
-yzma model get -u https://huggingface.co/ggml-org/embeddinggemma-300M-GGUF/resolve/main/embeddinggemma-300M-Q8_0.gguf -o ~/.cache/snip/models
-yzma model get -u https://huggingface.co/ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/resolve/main/qwen3-reranker-0.6b-q8_0.gguf -o ~/.cache/snip/models
-yzma model get -u https://huggingface.co/tobil/qmd-query-expansion-1.7B-gguf/resolve/main/qmd-query-expansion-1.7B-q4_k_m.gguf -o ~/.cache/snip/models
-
-# point SNIP at the llama.cpp libs
 export SNIP_LLAMA_LIB=~/.cache/snip/llama
+export SNIP_MODEL_CACHE_DIR=~/.cache/snip/models
+export SNIP_EMBED_MODEL=hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf
+export SNIP_RERANK_MODEL=hf:ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/qwen3-reranker-0.6b-q8_0.gguf
+export SNIP_EXPAND_MODEL=hf:tobil/qmd-query-expansion-1.7B-gguf/qmd-query-expansion-1.7B-q4_k_m.gguf
 ```
 
-If models or the llama.cpp libraries are missing, SNIP falls back to hash embeddings and lexical reranking.
-To enable yzma support, build with the `yzma` tag:
-
-```sh
-go build -tags yzma ./cmd/snip
-```
-
-To force pure-Go mode, set `embed_model: hash` (or `SNIP_MODEL=hash`).
+If models or the llama.cpp libraries are missing, SNIP falls back to hash embeddings and lexical reranking. To force pure-Go mode, set `embed_model: hash` (or `SNIP_MODEL=hash`).
 
 ## 🙏 Credits
 
