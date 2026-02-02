@@ -309,7 +309,9 @@ func isFTSSyntaxError(err error) bool {
 		return false
 	}
 	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "fts5: syntax error")
+	return strings.Contains(msg, "fts5: syntax error") ||
+		strings.Contains(msg, "fts5: parse error") ||
+		strings.Contains(msg, "no such column")
 }
 
 func expandQueries(query string) []string {

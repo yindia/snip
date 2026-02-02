@@ -18,3 +18,19 @@ func TestTruncate(t *testing.T) {
 		t.Fatalf("unexpected truncate result: %q", got)
 	}
 }
+
+func TestIsFTSSyntaxError(t *testing.T) {
+	if !isFTSSyntaxError(errString("fts5: syntax error near \"-\"")) {
+		t.Fatalf("expected syntax error detection")
+	}
+	if !isFTSSyntaxError(errString("SQL logic error: no such column: f (1)")) {
+		t.Fatalf("expected no such column detection")
+	}
+	if isFTSSyntaxError(errString("some other error")) {
+		t.Fatalf("unexpected syntax error detection")
+	}
+}
+
+type errString string
+
+func (e errString) Error() string { return string(e) }
