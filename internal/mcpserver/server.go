@@ -34,13 +34,13 @@ func New(db *sql.DB, embedder embed.Embedder, rr rerank.Reranker, expander searc
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "snip_get",
-		Description: "Retrieve a document by path or docid.",
+		Description: "Retrieve a document by path/docid, or multiple by glob/list.",
 		InputSchema: getInputSchema(),
 	}, adapter.Get)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "snip_multi_get",
-		Description: "Retrieve multiple documents by glob or list.",
+		Description: "Retrieve multiple documents by glob or list (legacy).",
 		InputSchema: multiGetInputSchema(),
 	}, adapter.MultiGet)
 

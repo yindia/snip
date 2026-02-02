@@ -64,22 +64,25 @@ type SearchOutput struct {
 }
 
 type GetInput struct {
-	File        string `json:"file" jsonschema:"path, docid (#abc123def4567890), or path:line"`
+	File        string `json:"file" jsonschema:"path, docid (#abc123def4567890), path:line, glob, or list"`
 	FromLine    int    `json:"fromLine,omitempty" jsonschema:"starting line number"`
 	MaxLines    int    `json:"maxLines,omitempty" jsonschema:"maximum lines to return"`
+	MaxBytes    int    `json:"maxBytes,omitempty" jsonschema:"maximum bytes per document (default 10240)"`
 	LineNumbers bool   `json:"lineNumbers,omitempty" jsonschema:"include line numbers"`
 }
 
 type GetOutput struct {
-	DocID       string  `json:"docid"`
-	File        string  `json:"file"`
-	Title       string  `json:"title"`
-	Content     string  `json:"content"`
-	Context     *string `json:"context"`
-	LineNumbers bool    `json:"lineNumbers"`
-	FromLine    int     `json:"fromLine,omitempty"`
-	MaxLines    int     `json:"maxLines,omitempty"`
-	Truncated   bool    `json:"truncated,omitempty"`
+	DocID       string        `json:"docid"`
+	File        string        `json:"file"`
+	Title       string        `json:"title"`
+	Content     string        `json:"content"`
+	Context     *string       `json:"context"`
+	LineNumbers bool          `json:"lineNumbers"`
+	FromLine    int           `json:"fromLine,omitempty"`
+	MaxLines    int           `json:"maxLines,omitempty"`
+	Truncated   bool          `json:"truncated,omitempty"`
+	Results     []GetOutput   `json:"results,omitempty"`
+	Skipped     []SkippedItem `json:"skipped,omitempty"`
 }
 
 type MultiGetInput struct {
@@ -195,7 +198,28 @@ func (a *Adapter) Query(ctx context.Context, _ *mcp.CallToolRequest, input Searc
 }
 
 func (a *Adapter) Get(ctx context.Context, _ *mcp.CallToolRequest, input GetInput) (*mcp.CallToolResult, GetOutput, error) {
-	docid, path, line := parseDocSpecifier(input.File)
+	file := strings.TrimSpace(input.File)
+	if file == "" {
+		return nil, GetOutput{}, errors.New("file is required")
+	}
+	if isGlobPattern(file) || strings.Contains(file, ",") {
+		multiInput := MultiGetInput{
+			Pattern:     file,
+			MaxLines:    input.MaxLines,
+			MaxBytes:    input.MaxBytes,
+			LineNumbers: input.LineNumbers,
+		}
+		_, multiOut, err := a.MultiGet(ctx, nil, multiInput)
+		if err != nil {
+			return nil, GetOutput{}, err
+		}
+		out := GetOutput{Results: multiOut.Results}
+		if len(multiOut.Skipped) > 0 {
+			out.Skipped = multiOut.Skipped
+		}
+		return summaryResult(fmt.Sprintf("snip_get: %d documents", len(multiOut.Results))), out, nil
+	}
+	docid, path, line := parseDocSpecifier(file)
 	if input.FromLine > 0 {
 		line = input.FromLine
 	}
@@ -292,6 +316,10 @@ func (a *Adapter) MultiGet(ctx context.Context, _ *mcp.CallToolRequest, input Mu
 	return summaryResult(fmt.Sprintf("snip_multi_get: %d documents", len(results))), out, nil
 }
 
+func isGlobPattern(input string) bool {
+	return strings.ContainsAny(input, "*?[]")
+}
+
 func (a *Adapter) Status(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, StatusOutput, error) {
 	var total int
 	if err := a.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM documents`).Scan(&total); err != nil {
@@ -360,8 +388,8 @@ func (a *Adapter) QueryPrompt(_ context.Context, _ *mcp.GetPromptRequest) (*mcp.
 Use snip_search for fast keyword/BM25 lookups (exact terms, symbols, filenames).
 Use snip_vsearch for semantic similarity when embeddings are available.
 Use snip_query for the hybrid pipeline (best overall quality).
-Use snip_get to fetch a single document by path or docid (#abc123def4567890).
-Use snip_multi_get for glob patterns or comma-separated lists, and cap output with maxBytes.
+Use snip_get to fetch a document by path/docid, or multiple documents with glob/list (optionally cap output with maxBytes).
+Use snip_multi_get if you need explicit multi-get semantics.
 Resources are available as snip://collection/relative/path and include line numbers by default.
 `)
 	return &mcp.GetPromptResult{
@@ -408,7 +436,7 @@ func getInputSchema() *jsonschema.Schema {
 		Properties: map[string]*jsonschema.Schema{
 			"file": {
 				Type:        "string",
-				Description: "path, docid (#abc123def4567890), or path:line",
+				Description: "path, docid (#abc123def4567890), path:line, glob, or list",
 			},
 			"fromLine": {
 				Type:        "integer",
@@ -417,6 +445,11 @@ func getInputSchema() *jsonschema.Schema {
 			"maxLines": {
 				Type:        "integer",
 				Description: "maximum lines to return",
+			},
+			"maxBytes": {
+				Type:        "integer",
+				Description: "maximum bytes per document (default 10240)",
+				Default:     json.RawMessage(fmt.Sprintf("%d", defaultMaxBytes)),
 			},
 			"lineNumbers": {
 				Type:        "boolean",
