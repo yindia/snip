@@ -64,7 +64,7 @@ func TestStatusStructuredContent(t *testing.T) {
 	defer sqlDB.Close()
 
 	now := time.Now().Unix()
-	if _, err := sqlDB.Exec(`INSERT INTO collections(name, path, mask) VALUES(?,?,?)`, "notes", "/tmp/notes", "*.md"); err != nil {
+	if _, err := sqlDB.Exec(`INSERT INTO collections(name, path, mask) VALUES(?,?,?)`, "notes", "/tmp/notes", "md"); err != nil {
 		t.Fatalf("insert collection: %v", err)
 	}
 	if _, err := sqlDB.Exec(`INSERT INTO documents(docid, collection, relpath, title, content, hash, updated_at) VALUES(?,?,?,?,?,?,?)`,

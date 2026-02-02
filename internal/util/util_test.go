@@ -2,14 +2,16 @@ package util
 
 import "testing"
 
-func TestDocIDFromHash(t *testing.T) {
-	hash := "abcdef123456"
-	if got := DocIDFromHash(hash); got != "abcdef" {
-		t.Fatalf("expected abcdef, got %s", got)
+func TestDocIDFromPath(t *testing.T) {
+	id := DocIDFromPath("notes", "a/b.md")
+	if len(id) != docIDLen {
+		t.Fatalf("expected length %d, got %d", docIDLen, len(id))
 	}
-	short := "abc"
-	if got := DocIDFromHash(short); got != short {
-		t.Fatalf("expected %s, got %s", short, got)
+	if got := DocIDFromPath("notes", "a/b.md"); got != id {
+		t.Fatalf("expected stable docid, got %s", got)
+	}
+	if other := DocIDFromPath("notes", "a/c.md"); other == id {
+		t.Fatalf("expected different docid for different path")
 	}
 }
 

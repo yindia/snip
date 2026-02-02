@@ -30,7 +30,7 @@ func collectionCmd() *cobra.Command {
 
 func collectionAddCmd() *cobra.Command {
 	var name string
-	var masks []string
+	var extensions []string
 	cmd := &cobra.Command{
 		Use:   "add <path>",
 		Short: "Add a collection",
@@ -56,8 +56,8 @@ func collectionAddCmd() *cobra.Command {
 				return err
 			}
 			defer h.DB.Close()
-			var existingPath, existingMask string
-			err = h.DB.QueryRow(`SELECT path, mask FROM collections WHERE name = ?`, name).Scan(&existingPath, &existingMask)
+			var existingPath, existingExtensions string
+			err = h.DB.QueryRow(`SELECT path, mask FROM collections WHERE name = ?`, name).Scan(&existingPath, &existingExtensions)
 			if err == nil {
 				return fmt.Errorf("collection %q already exists (path: %s). use `snip collection rename %s <new>` or `snip collection remove %s`", name, existingPath, name, name)
 			}
@@ -72,8 +72,8 @@ func collectionAddCmd() *cobra.Command {
 			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				return err
 			}
-			mask := joinMasks(masks)
-			_, err = h.DB.Exec(`INSERT INTO collections(name, path, mask) VALUES(?,?,?)`, name, path, mask)
+			extensionsValue := joinExtensions(extensions)
+			_, err = h.DB.Exec(`INSERT INTO collections(name, path, mask) VALUES(?,?,?)`, name, path, extensionsValue)
 			if err != nil {
 				return err
 			}
@@ -82,7 +82,7 @@ func collectionAddCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "collection name")
-	cmd.Flags().StringArrayVar(&masks, "mask", nil, "glob mask (repeatable)")
+	cmd.Flags().StringArrayVar(&extensions, "extension", nil, "file extension (repeatable; matches recursively; e.g. --extension go)")
 	return cmd
 }
 
@@ -90,7 +90,7 @@ func collectionListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List collections",
-		Long:  "Show all registered collections with their paths and masks.",
+		Long:  "Show all registered collections with their paths and extensions.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			h, err := openDB()
 			if err != nil {
@@ -103,12 +103,12 @@ func collectionListCmd() *cobra.Command {
 			}
 			defer rows.Close()
 			for rows.Next() {
-				var name, path, mask string
-				if err := rows.Scan(&name, &path, &mask); err != nil {
+				var name, path, extensions string
+				if err := rows.Scan(&name, &path, &extensions); err != nil {
 					return err
 				}
-				if mask != "" {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", name, path, mask)
+				if extensions != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", name, path, extensions)
 				} else {
 					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\n", name, path)
 				}
@@ -136,39 +136,21 @@ func collectionRemoveCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rows, err := tx.QueryContext(ctx, `SELECT docid, hash FROM documents WHERE collection = ?`, name)
-			if err != nil {
+			if _, err := tx.ExecContext(ctx, `
+				DELETE FROM documents_fts
+				WHERE docid IN (SELECT docid FROM documents WHERE collection = ?)`, name); err != nil {
 				_ = tx.Rollback()
 				return err
 			}
-			var hashes []string
-			var docids []string
-			for rows.Next() {
-				var docid, hash string
-				if err := rows.Scan(&docid, &hash); err != nil {
-					rows.Close()
-					_ = tx.Rollback()
-					return err
-				}
-				hashes = append(hashes, hash)
-				docids = append(docids, docid)
-			}
-			rows.Close()
-			for _, docid := range docids {
-				if _, err := tx.ExecContext(ctx, `DELETE FROM documents_fts WHERE docid = ?`, docid); err != nil {
-					_ = tx.Rollback()
-					return err
-				}
+			if _, err := tx.ExecContext(ctx, `
+				DELETE FROM content_vectors
+				WHERE hash IN (SELECT hash FROM documents WHERE collection = ?)`, name); err != nil {
+				_ = tx.Rollback()
+				return err
 			}
 			if _, err := tx.ExecContext(ctx, `DELETE FROM documents WHERE collection = ?`, name); err != nil {
 				_ = tx.Rollback()
 				return err
-			}
-			for _, hash := range hashes {
-				if _, err := tx.ExecContext(ctx, `DELETE FROM content_vectors WHERE hash = ?`, hash); err != nil {
-					_ = tx.Rollback()
-					return err
-				}
 			}
 			res, err := tx.ExecContext(ctx, `DELETE FROM collections WHERE name = ?`, name)
 			if err != nil {
@@ -302,7 +284,7 @@ func collectionByName(db *sql.DB, name string) (string, error) {
 	return path, nil
 }
 
-func joinMasks(items []string) string {
+func joinExtensions(items []string) string {
 	if len(items) == 0 {
 		return ""
 	}
@@ -313,7 +295,15 @@ func joinMasks(items []string) string {
 			if part == "" {
 				continue
 			}
-			parts = append(parts, part)
+			if strings.ContainsAny(part, "*?[]/") {
+				parts = append(parts, part)
+				continue
+			}
+			part = strings.TrimPrefix(part, ".")
+			part = strings.ToLower(part)
+			if part != "" {
+				parts = append(parts, part)
+			}
 		}
 	}
 	return strings.Join(parts, ",")

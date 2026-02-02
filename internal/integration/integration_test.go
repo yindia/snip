@@ -30,7 +30,7 @@ func TestUpdateAndSearch(t *testing.T) {
 	if _, err := sqlDB.Exec(`INSERT INTO collections(name, path, mask) VALUES(?,?,?)`, "notes", colDir, ""); err != nil {
 		t.Fatal(err)
 	}
-	stats, err := indexer.Update(context.Background(), sqlDB, []indexer.Collection{{Name: "notes", Path: colDir, Mask: ""}})
+	stats, err := indexer.Update(context.Background(), sqlDB, []indexer.Collection{{Name: "notes", Path: colDir, Extensions: ""}})
 	if err != nil {
 		t.Fatal(err)
 	}

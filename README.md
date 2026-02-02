@@ -22,7 +22,7 @@ brew install yindia/snip/snip
 Install script:
 
 ```sh
-curl -fsSL https://example.com/snip/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/yindia/snip/refs/heads/main/install.sh | sh
 ```
 
 Manual build:
@@ -59,7 +59,7 @@ snip query "quarterly planning process"  # hybrid + reranking (best quality)
 snip get "meetings/2024-01-15.md"
 
 # get a document by docid (shown in search results)
-snip get "#abc123"
+snip get "#abc123def4567890"
 
 # get multiple documents by glob pattern
 snip multi-get "journals/2025-05*.md"
@@ -234,8 +234,12 @@ The `query` command uses **Reciprocal Rank Fusion (RRF)** with position-aware bl
 # create a collection from current directory
 snip collection add . --name myproject
 
-# create a collection with explicit path and custom glob masks
-snip collection add ~/repo --name repo --mask "*.go" --mask "*.py"
+# create a collection with explicit path and custom file extensions
+# extensions match files recursively in any subdirectory
+snip collection add ~/repo --name repo --extension go --extension py
+
+# match all markdown files recursively
+snip collection add ~/repo --name repo --extension md
 
 # list all collections
 snip collection list
@@ -340,9 +344,9 @@ Index stored at: `~/.cache/snip/index.sqlite` (respects `XDG_CACHE_HOME`).
 Schema:
 
 ```sql
-collections     -- Indexed directories with name and glob patterns
+collections     -- Indexed directories with name and extensions
 path_contexts   -- Context descriptions by virtual path (snip://...)
-documents       -- Markdown content with metadata and docid (6-char hash)
+documents       -- Markdown content with metadata and docid (16-char hash)
 documents_fts   -- FTS5 full-text index
 content_vectors -- Embedding chunks (hash, seq, pos, 800 tokens each)
 ```
@@ -352,11 +356,11 @@ content_vectors -- Embedding chunks (hash, seq, pos, 800 tokens each)
 ### 🧱 Indexing Flow
 
 ```
-Collection ──► Glob Pattern ──► Markdown Files ──► Parse Title ──► Hash Content
+Collection ──► Extensions ──► Markdown Files ──► Parse Title ──► Hash Content
     │                                                   │              │
     │                                                   │              ▼
     │                                                   │         Generate docid
-    │                                                   │         (6-char hash)
+    │                                                   │         (16-char hash of collection+path)
     │                                                   │              │
     └──────────────────────────────────────────────────►└──► Store in SQLite
                                                                        │

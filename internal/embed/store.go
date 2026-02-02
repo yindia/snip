@@ -40,6 +40,7 @@ func EmbedDocuments(ctx context.Context, db *sql.DB, embedder Embedder, force bo
 	results := make(chan docResult, 64)
 	var wg sync.WaitGroup
 	workerCount := runtime.NumCPU()
+	var mu sync.Mutex
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
 		go func() {
@@ -70,38 +71,59 @@ func EmbedDocuments(ctx context.Context, db *sql.DB, embedder Embedder, force bo
 		close(results)
 	}()
 
-	for rows.Next() {
-		var hash, title, content string
-		if err := rows.Scan(&hash, &title, &content); err != nil {
-			return stats, err
-		}
-		stats.Documents++
-		if !force {
-			var exists int
-			err := db.QueryRowContext(ctx, `SELECT 1 FROM content_vectors WHERE hash = ? LIMIT 1`, hash).Scan(&exists)
-			if err == nil {
-				stats.Skipped++
-				continue
+	producerErr := make(chan error, 1)
+	go func() {
+		defer close(jobs)
+		var scanErr error
+		for rows.Next() {
+			var hash, title, content string
+			if err := rows.Scan(&hash, &title, &content); err != nil {
+				scanErr = err
+				break
 			}
+			mu.Lock()
+			stats.Documents++
+			mu.Unlock()
+			if !force {
+				var exists int
+				err := db.QueryRowContext(ctx, `SELECT 1 FROM content_vectors WHERE hash = ? LIMIT 1`, hash).Scan(&exists)
+				if err == nil {
+					mu.Lock()
+					stats.Skipped++
+					mu.Unlock()
+					continue
+				}
+			}
+			jobs <- docJob{Hash: hash, Title: title, Content: content}
 		}
-		jobs <- docJob{Hash: hash, Title: title, Content: content}
-	}
-	close(jobs)
-	if err := rows.Err(); err != nil {
-		return stats, err
-	}
+		if scanErr != nil {
+			producerErr <- scanErr
+			return
+		}
+		if err := rows.Err(); err != nil {
+			producerErr <- err
+			return
+		}
+		producerErr <- nil
+	}()
 
 	for res := range results {
 		if res.Err != nil {
+			mu.Lock()
 			stats.Errors++
+			mu.Unlock()
 			continue
 		}
 		if len(res.Chunks) == 0 {
+			mu.Lock()
 			stats.Skipped++
+			mu.Unlock()
 			continue
 		}
 		if len(res.Vectors) != len(res.Chunks) {
+			mu.Lock()
 			stats.Errors++
+			mu.Unlock()
 			continue
 		}
 		tx, err := db.BeginTx(ctx, nil)
@@ -125,7 +147,12 @@ func EmbedDocuments(ctx context.Context, db *sql.DB, embedder Embedder, force bo
 		if err := tx.Commit(); err != nil {
 			return stats, err
 		}
+		mu.Lock()
 		stats.Embedded++
+		mu.Unlock()
+	}
+	if err := <-producerErr; err != nil {
+		return stats, err
 	}
 	return stats, nil
 }

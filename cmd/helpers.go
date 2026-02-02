@@ -72,11 +72,11 @@ func loadCollections(db *sql.DB) ([]indexer.Collection, error) {
 	defer rows.Close()
 	var cols []indexer.Collection
 	for rows.Next() {
-		var name, path, mask string
-		if err := rows.Scan(&name, &path, &mask); err != nil {
+		var name, path, extensions string
+		if err := rows.Scan(&name, &path, &extensions); err != nil {
 			return nil, err
 		}
-		cols = append(cols, indexer.Collection{Name: name, Path: path, Mask: mask})
+		cols = append(cols, indexer.Collection{Name: name, Path: path, Extensions: extensions})
 	}
 	return cols, rows.Err()
 }

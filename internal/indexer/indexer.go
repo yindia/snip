@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -16,9 +17,9 @@ import (
 )
 
 type Collection struct {
-	Name string
-	Path string
-	Mask string
+	Name       string
+	Path       string
+	Extensions string
 }
 
 type Stats struct {
@@ -79,7 +80,7 @@ func updateCollection(ctx context.Context, db *sql.DB, col Collection) (Stats, e
 					continue
 				}
 				hash := util.HashContent(content)
-				docid := util.DocIDFromHash(hash)
+				docid := util.DocIDFromPath(col.Name, j.RelPath)
 				title := util.TitleFromMarkdown(string(content), j.RelPath)
 				results <- result{RelPath: j.RelPath, Title: title, Content: string(content), Hash: hash, DocID: docid}
 			}
@@ -101,7 +102,7 @@ func updateCollection(ctx context.Context, db *sql.DB, col Collection) (Stats, e
 				}
 				return nil
 			}
-			if !isMarkdown(path, col.Mask, col.Path) {
+			if !matchesExtensions(path, col.Extensions, col.Path) {
 				return nil
 			}
 			rel, err := filepath.Rel(col.Path, path)
@@ -230,25 +231,39 @@ func updateCollection(ctx context.Context, db *sql.DB, col Collection) (Stats, e
 	return stats, nil
 }
 
-func isMarkdown(path string, mask string, base string) bool {
-	rel, err := filepath.Rel(base, path)
+func matchesExtensions(fullPath string, extensions string, base string) bool {
+	rel, err := filepath.Rel(base, fullPath)
 	if err != nil {
 		return false
 	}
 	rel = filepath.ToSlash(rel)
-	if mask != "" {
-		for _, part := range strings.Split(mask, ",") {
+	if extensions != "" {
+		ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(fullPath)), ".")
+		for _, part := range strings.Split(extensions, ",") {
 			part = strings.TrimSpace(part)
 			if part == "" {
 				continue
 			}
-			ok, err := filepath.Match(part, rel)
-			if err == nil && ok {
+			if strings.ContainsAny(part, "*?[]/") {
+				part = filepath.ToSlash(part)
+				target := rel
+				if !strings.Contains(part, "/") {
+					target = path.Base(rel)
+				}
+				ok, err := path.Match(part, target)
+				if err == nil && ok {
+					return true
+				}
+				continue
+			}
+			part = strings.TrimPrefix(part, ".")
+			part = strings.ToLower(part)
+			if part != "" && part == ext {
 				return true
 			}
 		}
 		return false
 	}
-	lower := strings.ToLower(path)
+	lower := strings.ToLower(fullPath)
 	return strings.HasSuffix(lower, ".md") || strings.HasSuffix(lower, ".markdown") || strings.HasSuffix(lower, ".mdx") || strings.HasSuffix(lower, ".mdown")
 }

@@ -64,7 +64,7 @@ type SearchOutput struct {
 }
 
 type GetInput struct {
-	File        string `json:"file" jsonschema:"path, docid (#abc123), or path:line"`
+	File        string `json:"file" jsonschema:"path, docid (#abc123def4567890), or path:line"`
 	FromLine    int    `json:"fromLine,omitempty" jsonschema:"starting line number"`
 	MaxLines    int    `json:"maxLines,omitempty" jsonschema:"maximum lines to return"`
 	LineNumbers bool   `json:"lineNumbers,omitempty" jsonschema:"include line numbers"`
@@ -109,7 +109,7 @@ type StatusOutput struct {
 type CollectionStatus struct {
 	Name        string `json:"name"`
 	Path        string `json:"path"`
-	Pattern     string `json:"pattern"`
+	Extensions  string `json:"extensions" jsonschema:"comma-separated file extensions"`
 	Documents   int    `json:"documents"`
 	LastUpdated string `json:"lastUpdated"`
 }
@@ -360,7 +360,7 @@ func (a *Adapter) QueryPrompt(_ context.Context, _ *mcp.GetPromptRequest) (*mcp.
 Use snip_search for fast keyword/BM25 lookups (exact terms, symbols, filenames).
 Use snip_vsearch for semantic similarity when embeddings are available.
 Use snip_query for the hybrid pipeline (best overall quality).
-Use snip_get to fetch a single document by path or docid (#abc123).
+Use snip_get to fetch a single document by path or docid (#abc123def4567890).
 Use snip_multi_get for glob patterns or comma-separated lists, and cap output with maxBytes.
 Resources are available as snip://collection/relative/path and include line numbers by default.
 `)
@@ -408,7 +408,7 @@ func getInputSchema() *jsonschema.Schema {
 		Properties: map[string]*jsonschema.Schema{
 			"file": {
 				Type:        "string",
-				Description: "path, docid (#abc123), or path:line",
+				Description: "path, docid (#abc123def4567890), or path:line",
 			},
 			"fromLine": {
 				Type:        "integer",
@@ -813,11 +813,11 @@ func (a *Adapter) collectionStatus(ctx context.Context) ([]CollectionStatus, err
 		var (
 			name       string
 			path       string
-			mask       sql.NullString
+			extensions sql.NullString
 			docCount   int
 			updatedRaw sql.NullInt64
 		)
-		if err := rows.Scan(&name, &path, &mask, &docCount, &updatedRaw); err != nil {
+		if err := rows.Scan(&name, &path, &extensions, &docCount, &updatedRaw); err != nil {
 			return nil, err
 		}
 		lastUpdated := ""
@@ -827,7 +827,7 @@ func (a *Adapter) collectionStatus(ctx context.Context) ([]CollectionStatus, err
 		out = append(out, CollectionStatus{
 			Name:        name,
 			Path:        path,
-			Pattern:     mask.String,
+			Extensions:  extensions.String,
 			Documents:   docCount,
 			LastUpdated: lastUpdated,
 		})

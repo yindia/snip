@@ -17,12 +17,17 @@ func HashContent(content []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// DocIDFromHash returns a stable short docid derived from a content hash.
-func DocIDFromHash(hash string) string {
-	if len(hash) < 6 {
-		return hash
+const docIDLen = 16
+
+// DocIDFromPath returns a stable short docid derived from collection and relpath.
+func DocIDFromPath(collection, relpath string) string {
+	key := collection + ":" + filepath.ToSlash(relpath)
+	sum := sha256.Sum256([]byte(key))
+	id := hex.EncodeToString(sum[:])
+	if len(id) < docIDLen {
+		return id
 	}
-	return hash[:6]
+	return id[:docIDLen]
 }
 
 // TitleFromMarkdown extracts the first Markdown heading or falls back to filename.
