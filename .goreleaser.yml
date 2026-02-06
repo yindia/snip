@@ -38,7 +38,7 @@ brews:
     directory: Formula
     repository:
       owner: "yindia"
-      name: "snip"
+      name: "homebrew-yindia"
     test: |
       system "#{bin}/snip", "--help"
     install: |
