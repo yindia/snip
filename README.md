@@ -4,6 +4,7 @@ An on-device search engine for everything you need to remember. Index your Markd
 
 SNIP combines BM25 full-text search, deterministic offline vector search, and a hybrid reranking pipeline. Single binary, fully offline by default.
 
+
 ## ✨ Highlights
 
 - ⚡ Fast local search with BM25 + vectors
